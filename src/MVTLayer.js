@@ -287,18 +287,22 @@ module.exports = L.TileLayer.Canvas.extend({
     this.setLowestCount(count);
   },
 
-  //This is the old way.  It works, but is slow for mouseover events.  Fine for click events.
-  handleClickEvent: function(evt, cb) {
-    //Click happened on the GroupLayer (Manager) and passed it here
+  nearestFromEvent: function(evt, features) {
     var tileID = evt.tileID.split(":").slice(1, 3).join(":");
     var zoom = evt.tileID.split(":")[0];
+
+    // check zoom consistency
+    if (features.length && features[0].tiles) {
+      var featureZoom = Object.keys(features[0].tiles)[0].split(':')[0];
+      if (featureZoom !== zoom) {
+        return null;
+      }
+    }
+
     var canvas = this._tiles[tileID];
-    if(!canvas) (cb(evt)); //break out
     var x = evt.layerPoint.x - canvas._leaflet_pos.x;
     var y = evt.layerPoint.y - canvas._leaflet_pos.y;
-
     var tilePoint = {x: x, y: y};
-    var features = this._canvasIDToFeatures[evt.tileID].features;
 
     var minDistance = Number.POSITIVE_INFINITY;
     var nearest = null;
@@ -333,7 +337,7 @@ module.exports = L.TileLayer.Canvas.extend({
           paths = feature.getPathsForTile(evt.tileID);
           for (j = 0; j < paths.length; j++) {
             if (feature.style) {
-              var distance = this._getDistanceFromLine(tilePoint, paths[j]);
+              distance = this._getDistanceFromLine(tilePoint, paths[j]);
               var thickness = (feature.selected && feature.style.selected ? feature.style.selected.size : feature.style.size);
               if (distance < thickness / 2 + this.options.lineClickTolerance && distance < minDistance) {
                 nearest = feature;
@@ -353,14 +357,50 @@ module.exports = L.TileLayer.Canvas.extend({
           }
           break;
       }
-      if (minDistance == 0) break;
+      if (minDistance === 0) {
+          break;
+      }
     }
+    return nearest;
+  },
+
+  handleClickEvent: function(evt, cb) {
+    //Click happened on the GroupLayer (Manager) and passed it here
+    var features = this._canvasIDToFeatures[evt.tileID].features;
+    var nearest = this.nearestFromEvent(evt, features);
 
     if (nearest && nearest.toggleEnabled) {
         nearest.toggle();
     }
     evt.feature = nearest;
     cb(evt);
+  },
+
+  handleMouseoverEvent: function(evt, cb, lastFeature) {
+    var nearest = null;
+    cb = cb || function(evt) {};
+
+    if (lastFeature && this._isEventOverFeature(evt, lastFeature)) {
+      nearest = lastFeature;
+    } else {
+      var features = this._canvasIDToFeatures[evt.tileID].features;
+      nearest = this.nearestFromEvent(evt, features);
+
+      if (nearest && nearest.toggleEnabled) {
+        nearest.select();
+      }
+    }
+
+    evt.feature = nearest;
+    cb(evt);
+    return nearest;
+  },
+
+  _isEventOverFeature: function(evt, feature) {
+    if (!feature || !feature.tiles || !feature.tiles[evt.tileID]) {
+        return false;
+    }
+    return !!this.nearestFromEvent(evt, [feature]);
   },
 
   clearTile: function(id) {

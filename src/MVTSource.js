@@ -19,6 +19,7 @@ module.exports = L.TileLayer.MVTSource = L.TileLayer.Canvas.extend({
   _eventHandlers: {},
   _triggerOnTilesLoadedEvent: true, //whether or not to fire the onTilesLoaded event when all of the tiles finish loading.
   _url: "", //internal URL property
+  lastMouseoverFeature: null,
 
   style: function(feature) {
     var style = {};
@@ -116,7 +117,12 @@ module.exports = L.TileLayer.MVTSource = L.TileLayer.Canvas.extend({
       self._onClick(e);
     };
 
+    var mapOnMouseoverCallback = function(e) {
+      self._onMouseover(e);
+    };
+
     map.on('click', mapOnClickCallback);
+    map.on('mousemove', mapOnMouseoverCallback);
 
     map.on("layerremove", function(e) {
       // check to see if the layer removed is this one
@@ -124,6 +130,7 @@ module.exports = L.TileLayer.MVTSource = L.TileLayer.Canvas.extend({
       if (e.layer._leaflet_id === self._leaflet_id && e.layer.removeChildLayers) {
         e.layer.removeChildLayers(map);
         map.off('click', mapOnClickCallback);
+        map.off('mousemove', mapOnMouseoverCallback);
       }
     });
 
@@ -405,6 +412,38 @@ module.exports = L.TileLayer.MVTSource = L.TileLayer.Canvas.extend({
     }
 
   },
+
+    _onMouseover: function(evt) {
+        //Here, pass the event on to the child MVTLayer and have it do the hit test and handle the result.
+        var self = this;
+        var hoverableLayers = self.options.hoverableLayers;
+        var onMouseover = self.options.onMouseover;
+
+        evt.tileID = getTileURL(evt.latlng.lat, evt.latlng.lng, this.map.getZoom());
+
+        function deselect(feature) {
+            if (feature && feature.deselect) {
+                feature.deselect();
+            }
+        }
+
+        if (hoverableLayers && hoverableLayers.length > 0) {
+            for (var i = 0, len = hoverableLayers.length; i < len; i++) {
+                var key = hoverableLayers[i];
+                var layer = self.layers[key];
+                if (layer) {
+                    var currentFeature = layer.handleMouseoverEvent(evt, onMouseover, self.lastMouseoverFeature);
+                    if (self.lastMouseoverFeature && currentFeature && currentFeature.properties.id !== self.lastMouseoverFeature.properties.id) {
+                        deselect(self.lastMouseoverFeature);
+                    }
+                    if (!currentFeature || !currentFeature.properties.id) {
+                        deselect(self.lastMouseoverFeature);
+                    }
+                    self.lastMouseoverFeature = currentFeature;
+                }
+            }
+        }
+    },
 
   setFilter: function(filterFunction, layerName) {
     //take in a new filter function.
