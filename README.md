@@ -24,6 +24,8 @@ Take a look at this [short presentation](https://speakerdeck.com/hallahan/leafle
 
 [Basic Usage](http://spatialserver.github.io/Leaflet.MapboxVectorTile/examples/basic.html)
 
+[Mouseover Usage](http://spatialserver.github.io/Leaflet.MapboxVectorTile/examples/mouseover.html)
+
 [Statically Placed Labels](http://spatialserver.github.io/Leaflet.MapboxVectorTile/examples/static-label.html)
 
 [Confetti (700k Points)](http://spatialserver.github.io/Leaflet.MapboxVectorTile/examples/confetti.html)
